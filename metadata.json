@@ -1,0 +1,5 @@
+{
+  "name": "Harvest Dashboard",
+  "description": "An application to visualize crop harvesting periods and yields throughout the year.",
+  "requestFramePermissions": []
+}
