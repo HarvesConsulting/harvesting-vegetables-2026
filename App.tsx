@@ -4,6 +4,7 @@ import { ChartData } from './types';
 import SummaryCards from './components/SummaryCards';
 import CropList from './components/CropList';
 import HarvestChart from './components/HarvestChart';
+import CropDetailModal from './components/CropDetailModal';
 
 // Helper function to convert "dd.mm" string to Date object for the current year
 const parseDate = (dateStr: string): Date => {
@@ -50,6 +51,7 @@ const processData = (): ChartData[] => {
 
 const App: React.FC = () => {
   const [selectedCrop, setSelectedCrop] = useState<string | null>(null);
+  const [viewedCrop, setViewedCrop] = useState<ChartData | null>(null);
 
   const chartData = useMemo(() => processData(), []);
   
@@ -84,6 +86,11 @@ const App: React.FC = () => {
         latestEndDate: formatDate(latest)
     };
   }, [chartData]);
+
+  const handleViewCrop = (cropName: string) => {
+    const crop = chartData.find(c => c.name === cropName);
+    setViewedCrop(crop || null);
+  };
   
   return (
     <div className="min-h-screen bg-gray-900 text-gray-200 font-sans p-4 sm:p-6 lg:p-8">
@@ -113,6 +120,7 @@ const App: React.FC = () => {
                     crops={chartData}
                     selectedCrop={selectedCrop}
                     onSelectCrop={setSelectedCrop}
+                    onViewCrop={handleViewCrop}
                  />
               </div>
               <div className="lg:col-span-2">
@@ -130,6 +138,12 @@ const App: React.FC = () => {
             <p>Згенеровано за допомогою Gemini</p>
         </footer>
       </div>
+      {viewedCrop && (
+        <CropDetailModal 
+            crop={viewedCrop} 
+            onClose={() => setViewedCrop(null)} 
+        />
+      )}
     </div>
   );
 };

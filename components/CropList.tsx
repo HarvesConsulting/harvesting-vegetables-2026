@@ -5,9 +5,10 @@ interface CropListProps {
     crops: ChartData[];
     selectedCrop: string | null;
     onSelectCrop: (cropName: string | null) => void;
+    onViewCrop: (cropName: string) => void;
 }
 
-const CropList: React.FC<CropListProps> = ({ crops, selectedCrop, onSelectCrop }) => {
+const CropList: React.FC<CropListProps> = ({ crops, selectedCrop, onSelectCrop, onViewCrop }) => {
     return (
         <div className="max-h-[600px] overflow-y-auto pr-2 bg-gray-900 rounded-lg">
             <ul className="space-y-2">
@@ -16,6 +17,7 @@ const CropList: React.FC<CropListProps> = ({ crops, selectedCrop, onSelectCrop }
                         key={crop.name}
                         onMouseEnter={() => onSelectCrop(crop.name)}
                         onMouseLeave={() => onSelectCrop(null)}
+                        onClick={() => onViewCrop(crop.name)}
                         className={`p-3 rounded-md cursor-pointer transition-all duration-200 ease-in-out flex justify-between items-center ${selectedCrop === crop.name ? 'bg-purple-600 shadow-lg scale-105 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}
                     >
                         <div className="flex items-center space-x-3">
