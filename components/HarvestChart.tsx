@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, Cell } from 'recharts';
 import { ChartData } from '../types';
 
@@ -30,6 +30,18 @@ const CustomTooltip: React.FC<any> = ({ active, payload, label }) => {
 };
 
 const HarvestChart: React.FC<HarvestChartProps> = ({ data, selectedCrop, onSelectCrop }) => {
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const checkIsMobile = () => setIsMobile(window.innerWidth < 768);
+        checkIsMobile();
+        window.addEventListener('resize', checkIsMobile);
+        return () => window.removeEventListener('resize', checkIsMobile);
+    }, []);
+    
+    const axisStrokeColor = '#4b5563';
+    const tickFillColor = '#d1d5db';
+    const cursorFillColor = 'rgba(255, 255, 255, 0.1)';
 
     const monthNames = ["Січ", "Лют", "Бер", "Кві", "Тра", "Чер", "Лип", "Сер", "Вер", "Жов", "Лис", "Гру"];
     const year = new Date().getFullYear();
@@ -40,34 +52,27 @@ const HarvestChart: React.FC<HarvestChartProps> = ({ data, selectedCrop, onSelec
         return Math.floor(diff / (1000 * 60 * 60 * 24));
     };
 
-    // Define the fixed date range
     const domainStartDate = new Date(year, 5, 1); // June 1st
     const domainEndDate = new Date(year, 10, 15); // November 15th
     
-    // Day of year for the start of our domain, this will be our new zero point.
     const startDayDomain = dayOfYear(domainStartDate); 
     const endDayDomain = dayOfYear(domainEndDate);
 
-    // Adjust data so that startDay is relative to June 1st
     const adjustedData = data.map(d => ({
         ...d,
         startDay: d.startDay - startDayDomain,
     }));
 
-    // Adjust domain to start from 0
     const newDomain = [0, endDayDomain - startDayDomain];
 
-    // Generate ticks for the months within the domain (June to November)
     const monthTicks = [];
-    for (let i = 5; i <= 10; i++) { // 5 = June, 10 = November
+    for (let i = 5; i <= 10; i++) {
         monthTicks.push(new Date(year, i, 1));
     }
     const ticksInDaysOfYear = monthTicks.map(dayOfYear);
-    // Adjust ticks to be relative to our new zero point (June 1st)
     const adjustedTicks = ticksInDaysOfYear.map(tick => tick - startDayDomain);
 
     const tickFormatter = (tick: number) => {
-        // Add the offset back to get the real day of the year to format the month name
         const originalDayOfYear = tick + startDayDomain;
         const date = new Date(year, 0, originalDayOfYear);
         return monthNames[date.getMonth()];
@@ -79,7 +84,7 @@ const HarvestChart: React.FC<HarvestChartProps> = ({ data, selectedCrop, onSelec
                 <BarChart
                     data={adjustedData}
                     layout="vertical"
-                    margin={{ top: 5, right: 30, left: 100, bottom: 20 }}
+                    margin={{ top: 5, right: 30, left: isMobile ? 5 : 20, bottom: 20 }}
                     barCategoryGap="20%"
                 >
                     <XAxis 
@@ -87,23 +92,24 @@ const HarvestChart: React.FC<HarvestChartProps> = ({ data, selectedCrop, onSelec
                         domain={newDomain} 
                         ticks={adjustedTicks}
                         tickFormatter={tickFormatter}
-                        stroke="#9ca3af"
-                        tick={{ fill: '#d1d5db', fontSize: 12 }}
+                        stroke={axisStrokeColor}
+                        tick={{ fill: tickFillColor, fontSize: 12 }}
                     />
                     <YAxis 
                         dataKey="name" 
                         type="category" 
-                        stroke="#9ca3af"
-                        tick={{ fill: '#d1d5db', fontSize: 12 }}
-                        width={120}
+                        stroke={axisStrokeColor}
+                        tick={{ fill: tickFillColor, fontSize: isMobile ? 10 : 12 }}
+                        width={isMobile ? 100 : 120}
+                        interval={0}
                     />
-                    <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255, 255, 255, 0.1)' }} />
+                    <Tooltip content={<CustomTooltip />} cursor={{ fill: cursorFillColor }} />
                     <Legend
-                        wrapperStyle={{ bottom: 0, left: 25 }}
-                        payload={[
-                            { value: 'Період до збору', type: 'square', color: 'transparent' },
-                            { value: 'Період збору', type: 'square', color: '#8b5cf6' }
-                        ]}
+                        wrapperStyle={{ bottom: 0, left: 25, color: tickFillColor }}
+                         payload={[
+                             { value: 'Період до збору', type: 'square', color: 'transparent' },
+                             { value: 'Період збору', type: 'square', color: '#8b5cf6' }
+                         ].map(p => ({...p, color: tickFillColor}))}
                     />
                     <Bar dataKey="startDay" stackId="a" fill="transparent" />
                     <Bar dataKey="harvestDuration" stackId="a" onMouseEnter={(d) => onSelectCrop(d.name)} onMouseLeave={() => onSelectCrop(null)}>

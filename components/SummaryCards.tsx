@@ -7,7 +7,6 @@ interface SummaryCardsProps {
     latestEndDate: string;
 }
 
-// Fix: Replaced JSX.Element with React.ReactElement to resolve the "Cannot find namespace 'JSX'" error.
 const StatCard: React.FC<{ title: string; value: string; description: string; icon: React.ReactElement }> = ({ title, value, description, icon }) => (
     <div className="bg-gray-800 p-6 rounded-lg shadow-lg flex items-start space-x-4">
         <div className="flex-shrink-0 w-12 h-12 flex items-center justify-center bg-gray-700 rounded-full">

@@ -32,7 +32,6 @@ const processData = (): ChartData[] => {
     const startDateObj = parseDate(crop.startDate);
     const endDateObj = parseDate(crop.endDate);
     
-    // Ensure end date is after start date
     if (endDateObj < startDateObj) {
         endDateObj.setFullYear(startDateObj.getFullYear() + 1);
     }
@@ -60,9 +59,7 @@ const App: React.FC = () => {
   );
 
   const { earliestStartDate, latestEndDate } = useMemo(() => {
-    if (chartData.length === 0) {
-      return { earliestStartDate: '', latestEndDate: '' };
-    }
+    if (chartData.length === 0) return { earliestStartDate: '', latestEndDate: '' };
     
     let earliest = parseDate(chartData[0].startDate);
     let latest = parseDate(chartData[0].endDate);
@@ -71,18 +68,9 @@ const App: React.FC = () => {
       const start = parseDate(crop.startDate);
       const end = parseDate(crop.endDate);
 
-      // Handle year crossover for end date
-      if (end < start) {
-        end.setFullYear(end.getFullYear() + 1);
-      }
-      
-      if (start < earliest) {
-        earliest = start;
-      }
-      
-      if (end > latest) {
-        latest = end;
-      }
+      if (end < start) end.setFullYear(end.getFullYear() + 1);
+      if (start < earliest) earliest = start;
+      if (end > latest) latest = end;
     }
     
     const formatDate = (date: Date): string => {
@@ -101,12 +89,12 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-gray-900 text-gray-200 font-sans p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
         <header className="mb-8 text-center">
-          <h1 className="text-4xl sm:text-5xl font-bold text-white tracking-tight">
-            Панель врожайності культур
-          </h1>
-          <p className="mt-2 text-lg text-gray-400">
-            Візуалізація періодів збору та обсягів
-          </p>
+            <h1 className="text-4xl sm:text-5xl font-bold text-white tracking-tight">
+              Панель врожайності культур
+            </h1>
+            <p className="mt-2 text-lg text-gray-400">
+              Візуалізація періодів збору та обсягів
+            </p>
         </header>
 
         <main>
@@ -138,7 +126,7 @@ const App: React.FC = () => {
             </div>
           </div>
         </main>
-         <footer className="text-center mt-8 text-gray-500 text-sm">
+         <footer className="text-center mt-8 text-gray-400 text-sm">
             <p>Згенеровано за допомогою Gemini</p>
         </footer>
       </div>
