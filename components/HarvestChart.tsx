@@ -112,7 +112,7 @@ const HarvestChart: React.FC<HarvestChartProps> = ({ data, selectedCrop, onSelec
                                 key={`cell-${index}`} 
                                 fill={entry.color} 
                                 opacity={selectedCrop === null || selectedCrop === entry.name ? 1 : 0.3}
-                                className="transition-opacity"
+                                className="transition-opacity duration-300 ease-in-out"
                             />
                         ))}
                     </Bar>
