@@ -83,6 +83,10 @@ const App: React.FC = () => {
         });
     }, [processedData, searchTerm, selectedMonth]);
 
+    const alphabeticallySortedFilteredData = useMemo(() => {
+        return [...filteredData].sort((a, b) => a.name.localeCompare(b.name, 'uk'));
+    }, [filteredData]);
+
     const viewedCrop = useMemo(() => {
         return viewedCropName ? processedData.find(c => c.name === viewedCropName) : undefined;
     }, [viewedCropName, processedData]);
@@ -125,7 +129,7 @@ const App: React.FC = () => {
                         <aside className="lg:col-span-1 bg-gray-800 p-6 rounded-lg shadow-xl flex flex-col">
                            <h2 className="text-2xl font-semibold mb-4">Список культур</h2>
                             <CropList
-                                crops={filteredData}
+                                crops={alphabeticallySortedFilteredData}
                                 selectedCrop={selectedCrop}
                                 searchTerm={searchTerm}
                                 onSelectCrop={setSelectedCrop}
@@ -162,10 +166,11 @@ const App: React.FC = () => {
                                     data={filteredData}
                                     selectedCrop={selectedCrop}
                                     onSelectCrop={setSelectedCrop}
+                                    selectedMonth={selectedMonth}
                                 />
                             ) : (
                                 <CropTable
-                                    crops={filteredData}
+                                    crops={alphabeticallySortedFilteredData}
                                     onViewCrop={setViewedCropName}
                                 />
                             )}

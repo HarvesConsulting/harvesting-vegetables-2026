@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, Cell } from 'recharts';
 import { ChartData } from '../types';
 
@@ -6,6 +6,7 @@ interface HarvestChartProps {
     data: ChartData[];
     selectedCrop: string | null;
     onSelectCrop: (cropName: string | null) => void;
+    selectedMonth: number | null;
 }
 
 const CustomTooltip: React.FC<any> = ({ active, payload, label }) => {
@@ -32,7 +33,14 @@ const CustomTooltip: React.FC<any> = ({ active, payload, label }) => {
     return null;
 };
 
-const HarvestChart: React.FC<HarvestChartProps> = ({ data, selectedCrop, onSelectCrop }) => {
+const year = new Date().getFullYear();
+const dayOfYear = (date: Date): number => {
+    const start = new Date(date.getFullYear(), 0, 0);
+    const diff = (date.getTime() - start.getTime()) + ((start.getTimezoneOffset() - date.getTimezoneOffset()) * 60 * 1000);
+    return Math.floor(diff / (1000 * 60 * 60 * 24));
+};
+
+const HarvestChart: React.FC<HarvestChartProps> = ({ data, selectedCrop, onSelectCrop, selectedMonth }) => {
     const [isMobile, setIsMobile] = useState(false);
 
     useEffect(() => {
@@ -41,6 +49,70 @@ const HarvestChart: React.FC<HarvestChartProps> = ({ data, selectedCrop, onSelec
         window.addEventListener('resize', checkIsMobile);
         return () => window.removeEventListener('resize', checkIsMobile);
     }, []);
+
+    const { domainStartDate, domainEndDate, monthTicks } = useMemo(() => {
+        if (selectedMonth !== null) {
+            const startDate = new Date(year, selectedMonth, 1);
+            const endDate = new Date(year, selectedMonth + 1, 0); // Last day of month
+            const ticks = [];
+            const daysInMonth = endDate.getDate();
+
+            ticks.push(new Date(year, selectedMonth, 1));
+            if (daysInMonth > 10) ticks.push(new Date(year, selectedMonth, 10));
+            if (daysInMonth > 20) ticks.push(new Date(year, selectedMonth, 20));
+            ticks.push(new Date(year, selectedMonth, daysInMonth));
+            
+            // remove duplicates if e.g. month has 20 days
+            const uniqueTicks = ticks.filter((t, i, self) => self.findIndex(d => d.getDate() === t.getDate()) === i);
+
+            return { domainStartDate: startDate, domainEndDate: endDate, monthTicks: uniqueTicks };
+        } else {
+            const startDate = new Date(year, 5, 1); // June 1st
+            const endDate = new Date(year, 10, 15); // November 15th
+            const ticks = [];
+            for (let i = 5; i <= 10; i++) {
+                ticks.push(new Date(year, i, 1));
+            }
+            return { domainStartDate: startDate, domainEndDate: endDate, monthTicks: ticks };
+        }
+    }, [selectedMonth]);
+
+    const startDayDomain = dayOfYear(domainStartDate);
+    const endDayDomain = dayOfYear(domainEndDate);
+
+    const adjustedData = useMemo(() => data.map(d => {
+        const cropStartDay = d.startDay;
+        const cropEndDay = d.startDay + d.harvestDuration - 1;
+
+        const visibleStartDay = Math.max(cropStartDay, startDayDomain);
+        const visibleEndDay = Math.min(cropEndDay, endDayDomain);
+
+        if (visibleStartDay > visibleEndDay) {
+            return { ...d, visibleStartOffset: 0, visibleDuration: 0 };
+        }
+        
+        const newStartDay = visibleStartDay - startDayDomain;
+        const newHarvestDuration = visibleEndDay - visibleStartDay + 1;
+
+        return { ...d, visibleStartOffset: newStartDay, visibleDuration: newHarvestDuration };
+    }), [data, startDayDomain, endDayDomain]);
+
+    const newDomain = [0, endDayDomain - startDayDomain];
+
+    const ticksInDaysOfYear = monthTicks.map(dayOfYear);
+    const adjustedTicks = ticksInDaysOfYear.map(tick => tick - startDayDomain);
+
+    const tickFormatter = (tick: number) => {
+        const originalDayOfYear = Math.round(tick) + startDayDomain;
+        const date = new Date(year, 0, originalDayOfYear);
+        
+        if (selectedMonth !== null) {
+            return String(date.getDate());
+        }
+        
+        const allMonthNames = ["Січ", "Лют", "Бер", "Кві", "Тра", "Чер", "Лип", "Сер", "Вер", "Жов", "Лис", "Гру"];
+        return allMonthNames[date.getMonth()];
+    };
 
     const formatYAxisTick = (tick: string) => {
         const maxLength = isMobile ? 12 : 18;
@@ -53,41 +125,6 @@ const HarvestChart: React.FC<HarvestChartProps> = ({ data, selectedCrop, onSelec
     const axisStrokeColor = '#4b5563';
     const tickFillColor = '#d1d5db';
     const cursorFillColor = 'rgba(139, 92, 246, 0.2)'; // More subtle, theme-aligned cursor
-
-    const monthNames = ["Січ", "Лют", "Бер", "Кві", "Тра", "Чер", "Лип", "Сер", "Вер", "Жов", "Лис", "Гру"];
-    const year = new Date().getFullYear();
-
-    const dayOfYear = (date: Date): number => {
-        const start = new Date(date.getFullYear(), 0, 0);
-        const diff = (date.getTime() - start.getTime()) + ((start.getTimezoneOffset() - date.getTimezoneOffset()) * 60 * 1000);
-        return Math.floor(diff / (1000 * 60 * 60 * 24));
-    };
-
-    const domainStartDate = new Date(year, 5, 1); // June 1st
-    const domainEndDate = new Date(year, 10, 15); // November 15th
-    
-    const startDayDomain = dayOfYear(domainStartDate); 
-    const endDayDomain = dayOfYear(domainEndDate);
-
-    const adjustedData = data.map(d => ({
-        ...d,
-        startDay: d.startDay - startDayDomain,
-    }));
-
-    const newDomain = [0, endDayDomain - startDayDomain];
-
-    const monthTicks = [];
-    for (let i = 5; i <= 10; i++) {
-        monthTicks.push(new Date(year, i, 1));
-    }
-    const ticksInDaysOfYear = monthTicks.map(dayOfYear);
-    const adjustedTicks = ticksInDaysOfYear.map(tick => tick - startDayDomain);
-
-    const tickFormatter = (tick: number) => {
-        const originalDayOfYear = tick + startDayDomain;
-        const date = new Date(year, 0, originalDayOfYear);
-        return monthNames[date.getMonth()];
-    };
 
     return (
         <div className="w-full h-[600px]">
@@ -105,6 +142,7 @@ const HarvestChart: React.FC<HarvestChartProps> = ({ data, selectedCrop, onSelec
                         tickFormatter={tickFormatter}
                         stroke={axisStrokeColor}
                         tick={{ fill: tickFillColor, fontSize: 12 }}
+                        allowDataOverflow={true}
                     />
                     <YAxis 
                         dataKey="name" 
@@ -116,12 +154,11 @@ const HarvestChart: React.FC<HarvestChartProps> = ({ data, selectedCrop, onSelec
                         tickFormatter={formatYAxisTick}
                     />
                     <Tooltip content={<CustomTooltip />} cursor={{ fill: cursorFillColor }} />
-                    {/* FIX: Replaced custom legend payload with automatic legend generation from Bar components to fix TypeScript error. */}
                     <Legend
                         wrapperStyle={{ bottom: 0, left: 25, color: tickFillColor }}
                     />
-                    <Bar dataKey="startDay" stackId="a" fill="transparent" name="Період до збору" />
-                    <Bar dataKey="harvestDuration" stackId="a" fill="#8b5cf6" name="Період збору" onMouseEnter={(d) => onSelectCrop(d.name)} onMouseLeave={() => onSelectCrop(null)}>
+                    <Bar dataKey="visibleStartOffset" stackId="a" fill="transparent" name="Період до збору" />
+                    <Bar dataKey="visibleDuration" stackId="a" fill="#8b5cf6" name="Період збору" onMouseEnter={(d) => onSelectCrop(d.name)} onMouseLeave={() => onSelectCrop(null)}>
                         {adjustedData.map((entry, index) => (
                             <Cell 
                                 key={`cell-${index}`} 
