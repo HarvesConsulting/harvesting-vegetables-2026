@@ -31,7 +31,7 @@ const CropDetailModal: React.FC<CropDetailModalProps> = ({ crop, onClose }) => {
         <div className="flex flex-col sm:flex-row sm:flex-wrap gap-x-6 gap-y-2 text-gray-300 mb-6">
             <p><strong>Період збору:</strong> {crop.startDate} - {crop.endDate}</p>
             <p><strong>Валовий збір:</strong> {crop.yield} т</p>
-            <p><strong>Середній збір:</strong> {tonsPerWeek.toFixed(2)} т/тиждень</p>
+            <p><strong>Середній збір:</strong> {tonsPerWeek.toFixed(1)} т/тиждень</p>
         </div>
         <div className="h-48 w-full">
           <SingleCropChart data={crop} />

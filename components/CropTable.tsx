@@ -2,22 +2,33 @@ import React from 'react';
 import { ChartData } from '../types';
 
 interface CropTableProps {
-    crops: ChartData[];
+    crops: (ChartData & { yieldForPeriod: number })[];
     onViewCrop: (cropName: string) => void;
+    selectedMonth: number | null;
 }
 
-const CropTable: React.FC<CropTableProps> = ({ crops, onViewCrop }) => {
+const CropTable: React.FC<CropTableProps> = ({ crops, onViewCrop, selectedMonth }) => {
 
     const handleSave = () => {
-        const headers = ["Назва культури", "Початок збору", "Кінець збору", "Тривалість (днів)", "Валовий збір (т)"];
+        const headers = ["Назва культури", "Початок збору", "Кінець збору", "Тривалість (днів)"];
+        if (selectedMonth !== null) {
+            headers.push("Збір за період, т");
+        }
+        headers.push("Валовий збір (т)");
         
-        const dataRows: string[][] = crops.map(crop => [
-            String(crop.name),
-            String(crop.startDate),
-            String(crop.endDate),
-            String(crop.harvestDuration),
-            String(crop.yield)
-        ]);
+        const dataRows: string[][] = crops.map(crop => {
+            const row = [
+                String(crop.name),
+                String(crop.startDate),
+                String(crop.endDate),
+                String(crop.harvestDuration),
+            ];
+            if (selectedMonth !== null) {
+                row.push(String(crop.yieldForPeriod.toFixed(1)));
+            }
+            row.push(String(crop.yield));
+            return row;
+        });
 
         const allRowsForSizing = [headers, ...dataRows];
 
@@ -74,6 +85,9 @@ const CropTable: React.FC<CropTableProps> = ({ crops, onViewCrop }) => {
                             <th className="py-3 px-4 text-sm font-semibold uppercase tracking-wider">Початок збору</th>
                             <th className="py-3 px-4 text-sm font-semibold uppercase tracking-wider">Кінець збору</th>
                             <th className="py-3 px-4 text-sm font-semibold uppercase tracking-wider text-right">Тривалість (днів)</th>
+                            {selectedMonth !== null && (
+                                <th className="py-3 px-4 text-sm font-semibold uppercase tracking-wider text-right">Збір за період, т</th>
+                            )}
                             <th className="py-3 px-4 text-sm font-semibold uppercase tracking-wider text-right">Валовий збір (т)</th>
                         </tr>
                     </thead>
@@ -100,6 +114,9 @@ const CropTable: React.FC<CropTableProps> = ({ crops, onViewCrop }) => {
                                 <td className="py-3 px-4 whitespace-nowrap">{crop.startDate}</td>
                                 <td className="py-3 px-4 whitespace-nowrap">{crop.endDate}</td>
                                 <td className="py-3 px-4 whitespace-nowrap text-right">{crop.harvestDuration}</td>
+                                {selectedMonth !== null && (
+                                    <td className="py-3 px-4 whitespace-nowrap text-right">{crop.yieldForPeriod.toFixed(1)}</td>
+                                )}
                                 <td className="py-3 px-4 whitespace-nowrap text-right font-semibold">{crop.yield}</td>
                             </tr>
                         ))}

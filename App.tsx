@@ -87,6 +87,37 @@ const App: React.FC = () => {
         return [...filteredData].sort((a, b) => a.name.localeCompare(b.name, 'uk'));
     }, [filteredData]);
 
+    const dataForTable = useMemo(() => {
+        return alphabeticallySortedFilteredData.map(crop => {
+            if (selectedMonth === null) {
+                return { ...crop, yieldForPeriod: crop.yield };
+            }
+    
+            const monthStartDate = new Date(year, selectedMonth, 1);
+            const monthEndDate = new Date(year, selectedMonth + 1, 0);
+            
+            const cropStartDate = parseDate(crop.startDate);
+            const cropEndDate = parseDate(crop.endDate);
+    
+            const averageYieldPerDay = crop.harvestDuration > 0 ? crop.yield / crop.harvestDuration : 0;
+    
+            const intersectionStart = new Date(Math.max(cropStartDate.getTime(), monthStartDate.getTime()));
+            const intersectionEnd = new Date(Math.min(cropEndDate.getTime(), monthEndDate.getTime()));
+    
+            let daysInMonth = 0;
+            if (intersectionEnd >= intersectionStart) {
+                daysInMonth = (intersectionEnd.getTime() - intersectionStart.getTime()) / (1000 * 60 * 60 * 24) + 1;
+            }
+            
+            const yieldForPeriod = averageYieldPerDay * daysInMonth;
+    
+            return {
+                ...crop,
+                yieldForPeriod: yieldForPeriod,
+            };
+        });
+    }, [alphabeticallySortedFilteredData, selectedMonth]);
+
     const viewedCrop = useMemo(() => {
         return viewedCropName ? processedData.find(c => c.name === viewedCropName) : undefined;
     }, [viewedCropName, processedData]);
@@ -170,8 +201,9 @@ const App: React.FC = () => {
                                 />
                             ) : (
                                 <CropTable
-                                    crops={alphabeticallySortedFilteredData}
+                                    crops={dataForTable}
                                     onViewCrop={setViewedCropName}
+                                    selectedMonth={selectedMonth}
                                 />
                             )}
                         </div>
