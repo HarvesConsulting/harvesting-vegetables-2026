@@ -1,151 +1,191 @@
 import React, { useState, useMemo } from 'react';
-import { RAW_CROP_DATA } from './constants';
-import { ChartData } from './types';
+
+// Import components
 import SummaryCards from './components/SummaryCards';
 import CropList from './components/CropList';
 import HarvestChart from './components/HarvestChart';
 import CropDetailModal from './components/CropDetailModal';
+import CropTable from './components/CropTable';
+import MonthFilter from './components/MonthFilter';
 
-// Helper function to convert "dd.mm" string to Date object for the current year
+// Import data and types
+import { RAW_CROP_DATA } from './constants';
+import { ChartData } from './types';
+
+// Helper functions for data processing
+const year = new Date().getFullYear();
+
 const parseDate = (dateStr: string): Date => {
-  const [day, month] = dateStr.split('.').map(Number);
-  const year = new Date().getFullYear();
-  // Month is 0-indexed in JS Dates
-  return new Date(year, month - 1, day);
+    const [day, month] = dateStr.split('.').map(Number);
+    // Note: month is 0-indexed in JavaScript Date constructor (0 = January)
+    return new Date(year, month - 1, day);
 };
 
-// Helper function to get the day of the year (1-366)
-const getDayOfYear = (date: Date): number => {
-  const start = new Date(date.getFullYear(), 0, 0);
-  const diff = (date.getTime() - start.getTime()) + ((start.getTimezoneOffset() - date.getTimezoneOffset()) * 60 * 1000);
-  const oneDay = 1000 * 60 * 60 * 24;
-  return Math.floor(diff / oneDay);
+const dayOfYear = (date: Date): number => {
+    const start = new Date(date.getFullYear(), 0, 0);
+    const diff = (date.getTime() - start.getTime()) + ((start.getTimezoneOffset() - date.getTimezoneOffset()) * 60 * 1000);
+    return Math.floor(diff / (1000 * 60 * 60 * 24));
 };
 
-const processData = (): ChartData[] => {
-  const colors = [
-    '#34d399', '#f59e0b', '#8b5cf6', '#ef4444', '#3b82f6', '#ec4899',
-    '#10b981', '#d97706', '#7c3aed', '#dc2626', '#2563eb', '#db2777',
-    '#6ee7b7', '#fbbF24', '#a78bfa', '#f87171', '#60a5fa', '#f472b6'
-  ];
+// Consistent colors for the chart
+const COLORS = [
+  '#8B5CF6', '#EC4899', '#10B981', '#F59E0B', '#3B82F6', '#EF4444',
+  '#6366F1', '#D946EF', '#22C55E', '#EAB308', '#60A5FA', '#F87171',
+  '#A78BFA', '#F472B6', '#34D399', '#FBBF24', '#93C5FD', '#FCA5A5',
+  '#F472B6', '#14B8A6', '#F97316', '#6D28D9', '#4F46E5', '#BE185D',
+  '#059669', '#D97706', '#2563EB', '#DC2626', '#7C3AED', '#DB2777'
+];
 
-  return RAW_CROP_DATA.map((crop, index) => {
-    const startDateObj = parseDate(crop.startDate);
-    const endDateObj = parseDate(crop.endDate);
-    
-    if (endDateObj < startDateObj) {
-        endDateObj.setFullYear(startDateObj.getFullYear() + 1);
-    }
-
-    const startDay = getDayOfYear(startDateObj);
-    const endDay = getDayOfYear(endDateObj);
-
-    return {
-      ...crop,
-      startDay,
-      harvestDuration: endDay - startDay,
-      color: colors[index % colors.length]
-    };
-  }).sort((a, b) => a.startDay - b.startDay);
-};
-
+// Main App component
 const App: React.FC = () => {
-  const [selectedCrop, setSelectedCrop] = useState<string | null>(null);
-  const [viewedCrop, setViewedCrop] = useState<ChartData | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedCrop, setSelectedCrop] = useState<string | null>(null);
+    const [viewedCropName, setViewedCropName] = useState<string | null>(null);
+    const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+    const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart');
 
-  const chartData = useMemo(() => processData(), []);
-  
-  const totalYield = useMemo(() => 
-    chartData.reduce((sum, crop) => sum + crop.yield, 0), 
-    [chartData]
-  );
+    const processedData: ChartData[] = useMemo(() => {
+        return RAW_CROP_DATA.map((crop, index) => {
+            const startDate = parseDate(crop.startDate);
+            const endDate = parseDate(crop.endDate);
+            const startDay = dayOfYear(startDate);
+            const endDay = dayOfYear(endDate);
+            // Duration should be inclusive, so add 1
+            const harvestDuration = endDay >= startDay ? endDay - startDay + 1 : 0;
 
-  const { earliestStartDate, latestEndDate } = useMemo(() => {
-    if (chartData.length === 0) return { earliestStartDate: '', latestEndDate: '' };
+            return {
+                ...crop,
+                startDay,
+                harvestDuration,
+                color: COLORS[index % COLORS.length],
+            };
+        }).sort((a, b) => a.startDay - b.startDay);
+    }, []);
+
+    const filteredData = useMemo(() => {
+        return processedData.filter(crop => {
+            const matchesSearch = crop.name.toLowerCase().includes(searchTerm.toLowerCase());
+            
+            if (selectedMonth === null) {
+                return matchesSearch;
+            }
+
+            const startDate = parseDate(crop.startDate);
+            const endDate = parseDate(crop.endDate);
+            const startMonth = startDate.getMonth();
+            const endMonth = endDate.getMonth();
+            
+            if (startMonth <= endMonth) {
+                return matchesSearch && selectedMonth >= startMonth && selectedMonth <= endMonth;
+            } else { // Handles cases spanning across year-end, though not in current data
+                return matchesSearch && (selectedMonth >= startMonth || selectedMonth <= endMonth);
+            }
+        });
+    }, [processedData, searchTerm, selectedMonth]);
+
+    const viewedCrop = useMemo(() => {
+        return viewedCropName ? processedData.find(c => c.name === viewedCropName) : undefined;
+    }, [viewedCropName, processedData]);
     
-    let earliest = parseDate(chartData[0].startDate);
-    let latest = parseDate(chartData[0].endDate);
-
-    for (const crop of chartData) {
-      const start = parseDate(crop.startDate);
-      const end = parseDate(crop.endDate);
-
-      if (end < start) end.setFullYear(end.getFullYear() + 1);
-      if (start < earliest) earliest = start;
-      if (end > latest) latest = end;
-    }
+    // Summary data calculation
+    const totalCrops = RAW_CROP_DATA.length;
+    const totalYield = useMemo(() => RAW_CROP_DATA.reduce((sum, crop) => sum + crop.yield, 0), []);
     
-    const formatDate = (date: Date): string => {
-        const day = String(date.getDate()).padStart(2, '0');
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        return `${day}.${month}`;
-    }
+    const { earliestStartDate, latestEndDate } = useMemo(() => {
+        if (RAW_CROP_DATA.length === 0) return { earliestStartDate: '', latestEndDate: '' };
+        const allStartDates = RAW_CROP_DATA.map(c => parseDate(c.startDate));
+        const allEndDates = RAW_CROP_DATA.map(c => parseDate(c.endDate));
+        const earliest = new Date(Math.min(...allStartDates.map(d => d.getTime())));
+        const latest = new Date(Math.max(...allEndDates.map(d => d.getTime())));
+        const formatDate = (date: Date) => `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}`;
+        return { earliestStartDate: formatDate(earliest), latestEndDate: formatDate(latest) };
+    }, []);
 
-    return {
-        earliestStartDate: formatDate(earliest),
-        latestEndDate: formatDate(latest)
-    };
-  }, [chartData]);
 
-  const handleViewCrop = (cropName: string) => {
-    const crop = chartData.find(c => c.name === cropName);
-    setViewedCrop(crop || null);
-  };
-  
-  return (
-    <div className="min-h-screen bg-gray-900 text-gray-200 font-sans p-4 sm:p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto">
-        <header className="mb-8 text-center">
-            <h1 className="text-4xl sm:text-5xl font-bold text-white tracking-tight">
-              Графік поставок
-            </h1>
-            <p className="mt-2 text-lg text-gray-400">
-              Візуалізація періодів збору та обсягів
-            </p>
-        </header>
+    return (
+        <div className="bg-gray-900 min-h-screen text-white p-4 sm:p-6 lg:p-8 font-sans">
+            <div className="max-w-7xl mx-auto">
+                <header className="mb-8">
+                    <h1 className="text-4xl font-bold text-center mb-2 text-white">
+                        Графік поставок
+                    </h1>
+                </header>
 
-        <main>
-          <SummaryCards 
-            totalCrops={chartData.length}
-            totalYield={totalYield}
-            earliestStartDate={earliestStartDate}
-            latestEndDate={latestEndDate}
-          />
-          
-          <div className="mt-8 bg-gray-800 rounded-xl shadow-2xl p-4 sm:p-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-1">
-                 <h2 className="text-2xl font-semibold text-white mb-4">Список культур</h2>
-                 <CropList 
-                    crops={chartData}
-                    selectedCrop={selectedCrop}
-                    onSelectCrop={setSelectedCrop}
-                    onViewCrop={handleViewCrop}
-                 />
-              </div>
-              <div className="lg:col-span-2">
-                 <h2 className="text-2xl font-semibold text-white mb-4">Графік збору врожаю</h2>
-                 <HarvestChart 
-                    data={chartData}
-                    selectedCrop={selectedCrop}
-                    onSelectCrop={setSelectedCrop}
-                 />
-              </div>
+                <main>
+                    <section className="mb-8">
+                        <SummaryCards 
+                            totalCrops={totalCrops}
+                            totalYield={totalYield}
+                            earliestStartDate={earliestStartDate}
+                            latestEndDate={latestEndDate}
+                        />
+                    </section>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <aside className="lg:col-span-1 bg-gray-800 p-6 rounded-lg shadow-xl flex flex-col">
+                           <h2 className="text-2xl font-semibold mb-4">Список культур</h2>
+                            <CropList
+                                crops={filteredData}
+                                selectedCrop={selectedCrop}
+                                searchTerm={searchTerm}
+                                onSelectCrop={setSelectedCrop}
+                                onViewCrop={setViewedCropName}
+                                onSearchChange={setSearchTerm}
+                            />
+                        </aside>
+                        
+                        <div className="lg:col-span-2 bg-gray-800 p-6 rounded-lg shadow-xl">
+                           <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
+                               <h2 className="text-2xl font-semibold">Графік збору врожаю</h2>
+                               <div className="flex items-center space-x-2 bg-gray-700 p-1 rounded-lg">
+                                    <button 
+                                        onClick={() => setViewMode('chart')}
+                                        className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${viewMode === 'chart' ? 'bg-purple-600 text-white shadow' : 'text-gray-300 hover:bg-gray-600'}`}
+                                        aria-pressed={viewMode === 'chart'}
+                                    >
+                                        Графік
+                                    </button>
+                                    <button 
+                                        onClick={() => setViewMode('table')}
+                                        className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${viewMode === 'table' ? 'bg-purple-600 text-white shadow' : 'text-gray-300 hover:bg-gray-600'}`}
+                                        aria-pressed={viewMode === 'table'}
+                                    >
+                                        Таблиця
+                                    </button>
+                               </div>
+                           </div>
+
+                            <MonthFilter selectedMonth={selectedMonth} onSelectMonth={setSelectedMonth} />
+
+                            {viewMode === 'chart' ? (
+                                <HarvestChart
+                                    data={filteredData}
+                                    selectedCrop={selectedCrop}
+                                    onSelectCrop={setSelectedCrop}
+                                />
+                            ) : (
+                                <CropTable
+                                    crops={filteredData}
+                                    onViewCrop={setViewedCropName}
+                                />
+                            )}
+                        </div>
+                    </div>
+                </main>
+
+                {viewedCrop && (
+                    <CropDetailModal 
+                        crop={viewedCrop} 
+                        onClose={() => setViewedCropName(null)} 
+                    />
+                )}
+                
+                <footer className="text-center mt-12 text-gray-500 text-sm">
+                    <p>Дані надано для демонстраційних цілей.</p>
+                </footer>
             </div>
-          </div>
-        </main>
-         <footer className="text-center mt-8 text-gray-400 text-sm">
-            <p>Згенеровано за допомогою Gemini</p>
-        </footer>
-      </div>
-      {viewedCrop && (
-        <CropDetailModal 
-            crop={viewedCrop} 
-            onClose={() => setViewedCrop(null)} 
-        />
-      )}
-    </div>
-  );
+        </div>
+    );
 };
 
 export default App;

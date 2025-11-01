@@ -10,18 +10,21 @@ interface HarvestChartProps {
 
 const CustomTooltip: React.FC<any> = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
-        const data = payload[0].payload as ChartData;
+        // Find the original full name from the payload
+        const originalData = payload[0].payload as ChartData;
+        const fullLabel = originalData.name;
+
         return (
             <div className="bg-gray-800 border border-gray-700 p-3 rounded-md shadow-lg text-white">
-                <p className="font-bold text-lg">{label}</p>
+                <p className="font-bold text-lg">{fullLabel}</p>
                 <p className="text-sm text-gray-300">
-                    Період збору: {data.startDate} - {data.endDate}
+                    Період збору: {originalData.startDate} - {originalData.endDate}
                 </p>
                 <p className="text-sm text-gray-300">
-                    Тривалість: {data.harvestDuration} днів
+                    Тривалість: {originalData.harvestDuration} днів
                 </p>
                 <p className="text-sm text-yellow-400">
-                    Валовий збір: {data.yield} т
+                    Валовий збір: {originalData.yield} т
                 </p>
             </div>
         );
@@ -38,10 +41,18 @@ const HarvestChart: React.FC<HarvestChartProps> = ({ data, selectedCrop, onSelec
         window.addEventListener('resize', checkIsMobile);
         return () => window.removeEventListener('resize', checkIsMobile);
     }, []);
+
+    const formatYAxisTick = (tick: string) => {
+        const maxLength = isMobile ? 12 : 18;
+        if (tick.length > maxLength) {
+            return `${tick.substring(0, maxLength - 3)}...`;
+        }
+        return tick;
+    };
     
     const axisStrokeColor = '#4b5563';
     const tickFillColor = '#d1d5db';
-    const cursorFillColor = 'rgba(255, 255, 255, 0.1)';
+    const cursorFillColor = 'rgba(139, 92, 246, 0.2)'; // More subtle, theme-aligned cursor
 
     const monthNames = ["Січ", "Лют", "Бер", "Кві", "Тра", "Чер", "Лип", "Сер", "Вер", "Жов", "Лис", "Гру"];
     const year = new Date().getFullYear();
@@ -102,17 +113,15 @@ const HarvestChart: React.FC<HarvestChartProps> = ({ data, selectedCrop, onSelec
                         tick={{ fill: tickFillColor, fontSize: isMobile ? 10 : 12 }}
                         width={isMobile ? 100 : 120}
                         interval={0}
+                        tickFormatter={formatYAxisTick}
                     />
                     <Tooltip content={<CustomTooltip />} cursor={{ fill: cursorFillColor }} />
+                    {/* FIX: Replaced custom legend payload with automatic legend generation from Bar components to fix TypeScript error. */}
                     <Legend
                         wrapperStyle={{ bottom: 0, left: 25, color: tickFillColor }}
-                         payload={[
-                             { value: 'Період до збору', type: 'square', color: 'transparent' },
-                             { value: 'Період збору', type: 'square', color: '#8b5cf6' }
-                         ].map(p => ({...p, color: tickFillColor}))}
                     />
-                    <Bar dataKey="startDay" stackId="a" fill="transparent" />
-                    <Bar dataKey="harvestDuration" stackId="a" onMouseEnter={(d) => onSelectCrop(d.name)} onMouseLeave={() => onSelectCrop(null)}>
+                    <Bar dataKey="startDay" stackId="a" fill="transparent" name="Період до збору" />
+                    <Bar dataKey="harvestDuration" stackId="a" fill="#8b5cf6" name="Період збору" onMouseEnter={(d) => onSelectCrop(d.name)} onMouseLeave={() => onSelectCrop(null)}>
                         {adjustedData.map((entry, index) => (
                             <Cell 
                                 key={`cell-${index}`} 
