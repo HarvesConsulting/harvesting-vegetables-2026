@@ -1,6 +1,9 @@
 import React from 'react';
 import { ChartData } from '../types';
 
+// Declare the xlsx library from the CDN script to inform TypeScript
+declare const XLSX: any;
+
 interface CropTableProps {
     crops: (ChartData & { yieldForPeriod: number })[];
     onViewCrop: (cropName: string) => void;
@@ -10,68 +13,48 @@ interface CropTableProps {
 const CropTable: React.FC<CropTableProps> = ({ crops, onViewCrop, selectedMonth }) => {
 
     const handleSave = () => {
+        // Define headers for the Excel file
         const headers = ["Назва культури", "Початок збору", "Кінець збору", "Тривалість (днів)"];
         if (selectedMonth !== null) {
-            headers.push("Збір за період, т");
+            headers.push("Збір за період (т)");
         }
         headers.push("Валовий збір (т)");
         
-        const dataRows: string[][] = crops.map(crop => {
-            const row = [
-                String(crop.name),
-                String(crop.startDate),
-                String(crop.endDate),
-                String(crop.harvestDuration),
+        // Map crop data to an array of arrays for the worksheet
+        const dataToExport = crops.map(crop => {
+            const row: (string | number)[] = [
+                crop.name,
+                crop.startDate,
+                crop.endDate,
+                crop.harvestDuration,
             ];
             if (selectedMonth !== null) {
-                row.push(String(crop.yieldForPeriod.toFixed(1)));
+                // Ensure the value is a number for correct Excel formatting
+                row.push(Number(crop.yieldForPeriod.toFixed(1)));
             }
-            row.push(String(crop.yield));
+            row.push(crop.yield);
             return row;
         });
 
-        const allRowsForSizing = [headers, ...dataRows];
-
-        // Calculate the maximum width for each column
-        const columnWidths = headers.map((_, colIndex) => 
-            Math.max(...allRowsForSizing.map(row => row[colIndex].length))
-        );
-
-        // Function to create a formatted row with padding
-        const createFormattedRow = (row: string[]): string => {
-            return row.map((cell, index) => cell.padEnd(columnWidths[index], ' '))
-                      .join(' | ');
-        };
+        // Create the worksheet from the headers and data
+        const worksheet = XLSX.utils.aoa_to_sheet([headers, ...dataToExport]);
         
-        // Create the header row
-        const formattedHeader = createFormattedRow(headers);
+        // Auto-fit column widths for better presentation
+        const columnWidths = headers.map((header, i) => {
+            const maxLength = Math.max(
+                header.length,
+                ...dataToExport.map(row => String(row[i]).length)
+            );
+            return { wch: maxLength + 2 }; // Add a little padding
+        });
+        worksheet['!cols'] = columnWidths;
 
-        // Create a separator line
-        const separator = columnWidths.map(width => '-'.repeat(width)).join('-|-');
-        
-        // Create formatted data rows
-        const formattedDataRows = dataRows.map(createFormattedRow);
+        // Create a new workbook and append the worksheet
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Дані врожаю");
 
-        // Combine everything into the final text content
-        const txtContent = [
-            formattedHeader,
-            separator,
-            ...formattedDataRows
-        ].join('\n');
-
-        // Add BOM for correct encoding of Cyrillic characters in some text editors
-        const blob = new Blob(['\uFEFF' + txtContent], { type: 'text/plain;charset=utf-8;' });
-        const link = document.createElement("a");
-        const url = URL.createObjectURL(blob);
-        
-        link.setAttribute("href", url);
-        link.setAttribute("download", "harvest_data.txt");
-        link.style.visibility = 'hidden';
-        
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+        // Trigger the file download
+        XLSX.writeFile(workbook, "harvest_data.xlsx");
     };
 
 
@@ -131,7 +114,7 @@ const CropTable: React.FC<CropTableProps> = ({ crops, onViewCrop, selectedMonth 
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
                     </svg>
-                    <span>Зберегти таблицю</span>
+                    <span>Зберегти як XLSX</span>
                 </button>
             </div>
         </div>
